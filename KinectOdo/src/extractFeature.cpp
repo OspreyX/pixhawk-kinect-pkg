@@ -140,6 +140,7 @@ void EXTRACT::RANSAC()
 		transformation_at_least_once_computed=true;
 
 		previous_transformation=transformation_;
+
 		pcl::estimateRigidTransformationSVD(FeaturePointCloud[1],correspondences_source_good,FeaturePointCloud[0],correspondences_source_good,transformation_);
 		//		if(transformation_at_least_twice_computed)
 		//		{
@@ -154,6 +155,39 @@ void EXTRACT::RANSAC()
 		//			//			}
 		//		}
 		transformOld=KeyframeDataVector.at(actual_keyframe).Transformation*transformation_;
+
+
+
+//				Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+//
+//				Rotz.col(0)[0]=cos(M_PI/2);
+//				Rotz.col(0)[1]=-sin(M_PI/2);
+//				Rotz.col(1)[0]=sin(M_PI/2);
+//				Rotz.col(1)[1]=cos(M_PI/2);
+//
+//			//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
+//			//
+//			//	Roty.col(0)[0]=cos(-M_PI/2);
+//			//	Roty.col(0)[2]=sin(-M_PI/2);
+//			//	Roty.col(2)[0]=-sin(-M_PI/2);
+//			//	Roty.col(2)[2]=cos(-M_PI/2);
+//
+//				Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+//				Rotx.col(1)[1]=cos(M_PI/2);
+//				Rotx.col(1)[2]=-sin(M_PI/2);
+//				Rotx.col(2)[1]=sin(M_PI/2);
+//				Rotx.col(2)[2]=cos(M_PI/2);
+//			Eigen::Matrix3f matrix(quat_vicon);
+//
+//			Eigen::Matrix4f vicontransform=Eigen::Matrix4f::Identity();
+//
+//			vicontransform.block<3,1>(0,3)=pos_vicon;
+//			vicontransform.block<3,3>(0,0)=matrix;
+//			transformOld=Rotz*Rotx*vicontransform;
+//
+//			std::cout<<"vicontransform:"<<std::endl<<vicontransform<<std::endl;
+//			}
+
 
 
 	}
@@ -179,6 +213,81 @@ void EXTRACT::RANSAC()
 
 
 	}
+	if(take_vicon)
+		{
+		next_keyframe=true;
+//			Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+//
+//			Rotz.col(0)[0]=cos(M_PI/2);
+//			Rotz.col(0)[1]=-sin(M_PI/2);
+//			Rotz.col(1)[0]=sin(M_PI/2);
+//			Rotz.col(1)[1]=cos(M_PI/2);
+//
+//		//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
+//		//
+//		//	Roty.col(0)[0]=cos(-M_PI/2);
+//		//	Roty.col(0)[2]=sin(-M_PI/2);
+//		//	Roty.col(2)[0]=-sin(-M_PI/2);
+//		//	Roty.col(2)[2]=cos(-M_PI/2);
+//
+//			Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+//			Rotx.col(1)[1]=cos(M_PI/2);
+//			Rotx.col(1)[2]=-sin(M_PI/2);
+//			Rotx.col(2)[1]=sin(M_PI/2);
+//			Rotx.col(2)[2]=cos(M_PI/2);
+//		Eigen::Matrix3f matrix(quat_vicon);
+			btQuaternion tmp_quat(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
+
+			btMatrix3x3 m(tmp_quat);
+
+//			btMatrix3x3 m(q);
+//					std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
+//							<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
+//							<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
+//					double Roll, Pitch, Yaw;
+//					m.getRPY(Roll, Pitch, Yaw);
+
+
+
+
+		vicontransform=Eigen::Matrix4f::Identity();
+		float tmp;
+		tmp=m.getRow(0)[0];
+//		Eigen::Matrix4f vicontransform;
+
+		Eigen::Vector3f tmp_vec;
+
+		tmp_vec[0]=m.getRow(0)[0];
+		tmp_vec[1]=m.getRow(0)[1];
+		tmp_vec[2]=m.getRow(0)[2];
+
+		vicontransform.block<3,1>(0,0)=tmp_vec;
+
+		tmp_vec[0]=m.getRow(1)[0];
+		tmp_vec[1]=m.getRow(1)[1];
+		tmp_vec[2]=m.getRow(1)[2];
+
+		vicontransform.block<3,1>(0,1)=tmp_vec;
+
+		tmp_vec[0]=m.getRow(2)[0];
+		tmp_vec[1]=m.getRow(2)[1];
+		tmp_vec[2]=m.getRow(2)[2];
+
+		vicontransform.block<3,1>(0,2)=tmp_vec;
+
+		tmp_vec[0]=pos_vicon[2];
+		tmp_vec[1]=pos_vicon[0];
+		tmp_vec[2]=pos_vicon[1];
+
+		vicontransform.block<3,1>(0,3)=tmp_vec;
+
+//		vicontransform.block<3,3>(0,0)=matrix;
+		transformOld=vicontransform;
+
+		std::cout<<"vicontransform:"<<std::endl<<vicontransform<<std::endl;
+
+		take_vicon=false;
+		}
 	//	if(next_keyframe)
 	//	{
 	//		keyTrans=transformOld;
@@ -452,6 +561,7 @@ void EXTRACT::matchFeature(cv::Mat &dtors0,cv::Mat&dtors1,	vector<cv::DMatch> &m
 
 EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, int keyframe_inliers, bool time, bool slam,int ignored, int near_keyframe_inliers, int swaps)
 {
+	take_initial_vicon=false;
 	take_vicon=false;
 	reset_map=false;
 
@@ -723,8 +833,16 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 				FrameData[counter].KinectCloud=kinectCloud[counter];
 				if(counter==0)
 				{
-					FrameData[counter].Transformation=Eigen::Matrix4f::Identity();//imuRot
-					notcopied=0;
+					if(take_initial_vicon)
+					{
+						FrameData[counter].Transformation=vicontransform;//imuRot;
+					}
+					else
+					{
+						while(notcopied)
+							cvWaitKey(30);
+						FrameData[counter].Transformation=Eigen::Matrix4f::Identity();//imuRot;
+					}
 					KeyframeDataVector.push_back(FrameData[counter]);
 					PointCloud tmp;
 					tmp.header.frame_id="/pgraph";
@@ -861,6 +979,8 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 
 					if(showTime)
 						start_time=clock();
+
+
 					if(next_keyframe)
 					{
 						swap();
@@ -881,6 +1001,19 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 					{
 						end_time=clock();
 						std::cout<<"time for swapping:\t"<<(float(end_time)-float(start_time))/CLOCKS_PER_SEC<<std::endl;
+					}
+					if(reset_map)
+					{
+						counter=0;
+						next_keyframe=false;
+						reset_map=false;
+						KeyframeDataVector.clear();
+						path.poses.clear();
+						notcopied=true;
+
+							take_initial_vicon=true;
+
+
 					}
 				}
 				if(showTime)
@@ -1824,35 +1957,6 @@ void EXTRACT::PosEst()
 		}
 		transformOld=KeyframeDataVector.at(actual_keyframe).Transformation*transformation_;
 
-		if(take_vicon)
-		{
-			Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
-
-			Rotz.col(0)[0]=cos(M_PI/2);
-			Rotz.col(0)[1]=-sin(M_PI/2);
-			Rotz.col(1)[0]=sin(M_PI/2);
-			Rotz.col(1)[1]=cos(M_PI/2);
-
-		//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
-		//
-		//	Roty.col(0)[0]=cos(-M_PI/2);
-		//	Roty.col(0)[2]=sin(-M_PI/2);
-		//	Roty.col(2)[0]=-sin(-M_PI/2);
-		//	Roty.col(2)[2]=cos(-M_PI/2);
-
-			Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
-			Rotx.col(1)[1]=cos(M_PI/2);
-			Rotx.col(1)[2]=-sin(M_PI/2);
-			Rotx.col(2)[1]=sin(M_PI/2);
-			Rotx.col(2)[2]=cos(M_PI/2);
-		Eigen::Matrix3f matrix(quat_vicon);
-
-		Eigen::Matrix4f vicontransform=Eigen::Matrix4f::Identity();
-
-		vicontransform.block<3,1>(0,3)=pos_vicon;
-		vicontransform.block<3,3>(0,0)=matrix;
-		transformOld=Rotz*Rotx*vicontransform;
-		}
 
 
 	}
@@ -2982,6 +3086,7 @@ void EXTRACT::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
 
 void EXTRACT::commandCallback (const lcm_mavlink_ros::COMMAND& commandMsg)
 {
+	std::cout<<"commandmsg.command:"<<commandMsg.command<<std::endl;
 	if(commandMsg.command==200)
 		take_vicon=true;
 	if(commandMsg.command==201)
@@ -3000,7 +3105,7 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 		quat_imu.z()=imuMsg.orientation.z;
 		quat_imu.w()=imuMsg.orientation.w;
 
-	btQuaternion q(imuMsg.orientation.x, imuMsg.orientation.y, imuMsg.orientation.z, imuMsg.orientation.w);
+	btQuaternion q(-imuMsg.orientation.y, -imuMsg.orientation.z,imuMsg.orientation.x,  imuMsg.orientation.w);
 	btMatrix3x3 m(q);
 	double Roll, Pitch, Yaw;
 	m.getRPY(Roll, Pitch, Yaw);
@@ -3015,15 +3120,17 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 	RotXRoll.col(2)[1]=sin(-Roll);
 	RotXRoll.col(2)[2]=cos(-Roll);
 
-	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
+//	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
 
 	Eigen::Matrix4f RotYPitch=Eigen::Matrix4f::Identity();
+
+	notcopied=false;
 
 	RotYPitch.col(0)[0]=cos(-Pitch);
 	RotYPitch.col(0)[2]=sin(-Pitch);
 	RotYPitch.col(2)[0]=-sin(-Pitch);
 	RotYPitch.col(2)[2]=cos(-Pitch);
-	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
+//	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
 
 
 	Eigen::Matrix4f RotZYaw=Eigen::Matrix4f::Identity();
@@ -3032,16 +3139,16 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 	RotZYaw.col(0)[1]=-sin(Yaw);
 	RotZYaw.col(1)[0]=sin(Yaw);
 	RotZYaw.col(1)[1]=cos(Yaw);
-	std::cout<<"rollyaw\n"<<RotZYaw<<std::endl;
-
-
-
-	Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
-
-	Rotz.col(0)[0]=cos(M_PI/2);
-	Rotz.col(0)[1]=-sin(M_PI/2);
-	Rotz.col(1)[0]=sin(M_PI/2);
-	Rotz.col(1)[1]=cos(M_PI/2);
+//	std::cout<<"rollyaw\n"<<RotZYaw<<std::endl;
+//
+//
+//
+//	Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+//
+//	Rotz.col(0)[0]=cos(M_PI/2);
+//	Rotz.col(0)[1]=-sin(M_PI/2);
+//	Rotz.col(1)[0]=sin(M_PI/2);
+//	Rotz.col(1)[1]=cos(M_PI/2);
 
 //	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
 //
@@ -3050,11 +3157,11 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 //	Roty.col(2)[0]=-sin(-M_PI/2);
 //	Roty.col(2)[2]=cos(-M_PI/2);
 
-	Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
-	Rotx.col(1)[1]=cos(M_PI/2);
-	Rotx.col(1)[2]=-sin(M_PI/2);
-	Rotx.col(2)[1]=sin(M_PI/2);
-	Rotx.col(2)[2]=cos(M_PI/2);
+//	Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+//	Rotx.col(1)[1]=cos(M_PI/2);
+//	Rotx.col(1)[2]=-sin(M_PI/2);
+//	Rotx.col(2)[1]=sin(M_PI/2);
+//	Rotx.col(2)[2]=cos(M_PI/2);
 
 
 
@@ -3071,7 +3178,7 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 //	double Raw2, Pitch2, Yaw2;
 //	m2.getRPY(Raw2, Pitch2, Yaw2);
 	//1st
-	imuRot=Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
+	imuRot=RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
 	std::cout<<"imurot"<<std::endl<<imuRot<<std::endl;
 //	imuRot=Eigen::Matrix4f::Identity();
 //	imuRot.col(0)[0]=(float)cos(Pitch);
