@@ -29,7 +29,7 @@ void EXTRACT::RANSAC()
 	Eigen::Vector3f translation;
 
 
-	/***Defining all the RANSAC STUFF***/
+	/***Defining all the RANSAC STUFF***/
 
 	//	if(colored_pointcloud==true)
 	//	{
@@ -142,6 +142,10 @@ void EXTRACT::RANSAC()
 		previous_transformation=transformation_;
 
 		pcl::estimateRigidTransformationSVD(FeaturePointCloud[1],correspondences_source_good,FeaturePointCloud[0],correspondences_source_good,transformation_);
+
+		std::cout<<"transformation_"<<std::endl<<transformation_<<std::endl;
+		std::cout<<"KeyframeDataVector.at(actual_keyframe).Transformation"<<std::endl<<KeyframeDataVector.at(actual_keyframe).Transformation<<std::endl;
+		std::cout<<"actual keyframe"<<actual_keyframe<<std::endl;
 		//		if(transformation_at_least_twice_computed)
 		//		{
 		//			frametrans=keyTrans*transformation_*previous_transformation.inverse()*transformation_;
@@ -236,9 +240,9 @@ void EXTRACT::RANSAC()
 //			Rotx.col(2)[1]=sin(M_PI/2);
 //			Rotx.col(2)[2]=cos(M_PI/2);
 //		Eigen::Matrix3f matrix(quat_vicon);
-			btQuaternion tmp_quat(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
-
-			btMatrix3x3 m(tmp_quat);
+//			btQuaternion tmp_quat(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
+//
+//			btMatrix3x3 m(tmp_quat);
 
 //			btMatrix3x3 m(q);
 //					std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
@@ -248,36 +252,55 @@ void EXTRACT::RANSAC()
 //					m.getRPY(Roll, Pitch, Yaw);
 
 
+				Eigen::Quaternion<float> quat_vicon_eigen;
+				quat_vicon_eigen.x()=-quat_vicon.y();
+				quat_vicon_eigen.y()=-quat_vicon.z();
+				quat_vicon_eigen.z()=quat_vicon.x();
+				quat_vicon_eigen.w()=quat_vicon.w();
+
+
+				btQuaternion quat_tmp(quat_vicon.y(),quat_vicon.z(),quat_vicon.x(),quat_vicon.w());
+
+
+//				quat_tmp=quat_vicon_eigen*quat_tmp;
+
+
+
+				btMatrix3x3 m(quat_tmp);
+
+				std::cout<<"m vicon:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
+				<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
+				<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
+
+
 
 
 		vicontransform=Eigen::Matrix4f::Identity();
-		float tmp;
-		tmp=m.getRow(0)[0];
 //		Eigen::Matrix4f vicontransform;
 
 		Eigen::Vector3f tmp_vec;
 
-		tmp_vec[0]=m.getRow(0)[0];
-		tmp_vec[1]=m.getRow(0)[1];
-		tmp_vec[2]=m.getRow(0)[2];
+		tmp_vec[0]=m.getColumn(0)[0];
+		tmp_vec[1]=m.getColumn(0)[1];
+		tmp_vec[2]=m.getColumn(0)[2];
 
 		vicontransform.block<3,1>(0,0)=tmp_vec;
 
-		tmp_vec[0]=m.getRow(1)[0];
-		tmp_vec[1]=m.getRow(1)[1];
-		tmp_vec[2]=m.getRow(1)[2];
+		tmp_vec[0]=m.getColumn(1)[0];
+		tmp_vec[1]=m.getColumn(1)[1];
+		tmp_vec[2]=m.getColumn(1)[2];
 
 		vicontransform.block<3,1>(0,1)=tmp_vec;
 
-		tmp_vec[0]=m.getRow(2)[0];
-		tmp_vec[1]=m.getRow(2)[1];
-		tmp_vec[2]=m.getRow(2)[2];
+		tmp_vec[0]=m.getColumn(2)[0];
+		tmp_vec[1]=m.getColumn(2)[1];
+		tmp_vec[2]=m.getColumn(2)[2];
 
 		vicontransform.block<3,1>(0,2)=tmp_vec;
 
-		tmp_vec[0]=pos_vicon[2];
-		tmp_vec[1]=pos_vicon[0];
-		tmp_vec[2]=pos_vicon[1];
+		tmp_vec[0]=pos_vicon[1];
+		tmp_vec[1]=pos_vicon[2];
+		tmp_vec[2]=pos_vicon[0];
 
 		vicontransform.block<3,1>(0,3)=tmp_vec;
 
@@ -332,15 +355,21 @@ void EXTRACT::publishEverything()
 	heliPose.header.stamp=ros::Time::now();
 	heliPose.pose.position.x=trans_vec[2];
 	heliPose.pose.position.y=trans_vec[0];
-	heliPose.pose.position.z=trans_vec[1];
+	if(take_vicon_z)
+	{
+		heliPose.pose.position.z=pos_vicon[2];
+		std::cout<<"taking vicon z"<<std::endl;
+	}
+	else
+		heliPose.pose.position.z=trans_vec[1];
 
 	Eigen::Quaternion<float> quat_tmp;
 	quat_tmp.w()=quat_rot.w();
 	quat_tmp.x()=quat_rot.z();
-	quat_tmp.y()=quat_rot.y();
-	quat_tmp.z()=quat_rot.x();
+	quat_tmp.y()=quat_rot.x();
+	quat_tmp.z()=quat_rot.y();
 
-	quat_tmp=quat_imu*quat_tmp;
+//	quat_tmp=quat_imu*quat_tmp;
 
 	heliPose.pose.orientation.w=quat_tmp.w();
 	heliPose.pose.orientation.x=quat_tmp.x();
@@ -348,16 +377,18 @@ void EXTRACT::publishEverything()
 	heliPose.pose.orientation.z=quat_tmp.z();
 
 
-	//imuMutex_.lock();
-		btQuaternion q(quat_rot_heli.x(), quat_rot_heli.y(), quat_rot_heli.z(), quat_rot_heli.w());
-		btMatrix3x3 m(q);
-		std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
-				<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
-				<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
-		double Roll, Pitch, Yaw;
-		m.getRPY(Roll, Pitch, Yaw);
 
-		std::cout<<"rollend:"<<Roll<<"pitchend"<<Pitch<<"Yawend"<<Yaw<<std::endl;
+
+	//imuMutex_.lock();
+//		btQuaternion q(quat_rot_heli.x(), quat_rot_heli.y(), quat_rot_heli.z(), quat_rot_heli.w());
+//		btMatrix3x3 m(q);
+//		std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
+//				<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
+//				<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
+//		double Roll, Pitch, Yaw;
+//		m.getRPY(Roll, Pitch, Yaw);
+//
+//		std::cout<<"rollend:"<<Roll<<"pitchend"<<Pitch<<"Yawend"<<Yaw<<std::endl;
 
 	bodyPoseStamped_pub.publish(heliPose);
 
@@ -516,7 +547,7 @@ void EXTRACT::RANSACandTransformation()
 
 	//	if(showDisplay)
 	//	{
-	//		std::cout<<"correspondences_inliers.size()"<<correspondences_inliers.size()<<std::endl;
+			std::cout<<"correspondences_inliers.size() RANSACINLIERS"<<correspondences_inliers.size()<<std::endl;
 	//		for(uint i=0;i<correspondences_inliers.size();i++)
 	//		{
 	//			//				push_back_point.x=kinectCloud[0].at(kpts[0][matches_popcount[correspondences_matches[correspondences_inliers[i]]].queryIdx].pt.x,kpts[0][matches_popcount[correspondences_matches[correspondences_inliers[i]]].queryIdx].pt.y).x;
@@ -561,6 +592,7 @@ void EXTRACT::matchFeature(cv::Mat &dtors0,cv::Mat&dtors1,	vector<cv::DMatch> &m
 
 EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, int keyframe_inliers, bool time, bool slam,int ignored, int near_keyframe_inliers, int swaps)
 {
+	take_vicon_z=swaps;
 	take_initial_vicon=false;
 	take_vicon=false;
 	reset_map=false;
@@ -688,7 +720,7 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 	message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), pointCloud_sub, rgbImage_sub);
 	called_first_time=true;
 
-	/*ROS PUBLISHERS */
+	/*ROS PUBLISHERS */
 	//for visualization
 	path_pub=n.advertise<nav_msgs::Path>("mainSLAM/path",1);
 	//for visualization
@@ -1010,8 +1042,33 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 						KeyframeDataVector.clear();
 						path.poses.clear();
 						notcopied=true;
+						callback_counter=0;
+						called=0;
+						actual_keyframe=0;
+							compute_counter=0;
+							computed=0;
+							transformation_at_least_once_computed=false;
+							transformation_at_least_twice_computed=false;
+							colored_pointcloud=false;
+
+
+							averageNumberOfCorrespondences=0;
+							averageTime=0;
+
+							countOfBadCorrespondences=0;
+
+							transformOld=Eigen::Matrix4f::Identity();
+							transformGes=Eigen::Matrix4f::Identity();
+							rot_matrix=Eigen::Matrix3f::Identity();
+							compute_transform_success=1;
+
+
+
+							called_first_time=true;
+							take_vicon=true;
 
 							take_initial_vicon=true;
+
 
 
 					}
@@ -3071,6 +3128,7 @@ void EXTRACT::createCorrespondingPointcloud(struct FrameData& Data0,PointCloud& 
 
 void EXTRACT::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
 {
+	std::cout<<"in viconcallback"<<std::endl;
 	quat_vicon.x()=viconMsg.pose.orientation.x;
 	quat_vicon.y()=viconMsg.pose.orientation.y;
 	quat_vicon.z()=viconMsg.pose.orientation.z;
@@ -3086,10 +3144,11 @@ void EXTRACT::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
 
 void EXTRACT::commandCallback (const lcm_mavlink_ros::COMMAND& commandMsg)
 {
+	std::cout<<"in commandcallback"<<std::endl;
 	std::cout<<"commandmsg.command:"<<commandMsg.command<<std::endl;
 	if(commandMsg.command==200)
 		take_vicon=true;
-	if(commandMsg.command==201)
+	if(commandMsg.command==241)
 		reset_map=true;
 }
 
@@ -3105,41 +3164,72 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 		quat_imu.z()=imuMsg.orientation.z;
 		quat_imu.w()=imuMsg.orientation.w;
 
-	btQuaternion q(-imuMsg.orientation.y, -imuMsg.orientation.z,imuMsg.orientation.x,  imuMsg.orientation.w);
+		btQuaternion q(-imuMsg.orientation.y, -imuMsg.orientation.z,imuMsg.orientation.x,  imuMsg.orientation.w);
+//		btQuaternion q(imuMsg.orientation.x, -imuMsg.orientation.y,imuMsg.orientation.z,  imuMsg.orientation.w);
 	btMatrix3x3 m(q);
 	double Roll, Pitch, Yaw;
 	m.getRPY(Roll, Pitch, Yaw);
+//	m.setRPY(Roll,Pitch,0);
 
-	std::cout<<"roll: "<<Roll<<"pitch: "<<Pitch<<"yaw:"<<Yaw<<std::endl;
+	std::cout<<"roll"<<Roll<<"pitch"<<Pitch<<"yaw"<<Yaw<<std::endl;
 
-	Yaw=0;
 
-	Eigen::Matrix4f RotXRoll=Eigen::Matrix4f::Identity();
-	RotXRoll.col(1)[1]=cos(-Roll);
-	RotXRoll.col(1)[2]=-sin(-Roll);
-	RotXRoll.col(2)[1]=sin(-Roll);
-	RotXRoll.col(2)[2]=cos(-Roll);
 
-//	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
+	Eigen::Vector3f tmp_vec;
 
-	Eigen::Matrix4f RotYPitch=Eigen::Matrix4f::Identity();
+	tmp_vec[0]=m.getColumn(0)[0];
+	tmp_vec[1]=m.getColumn(0)[1];
+	tmp_vec[2]=m.getColumn(0)[2];
+
+	imuRot.block<3,1>(0,0)=tmp_vec;
+
+	tmp_vec[0]=m.getColumn(1)[0];
+	tmp_vec[1]=m.getColumn(1)[1];
+	tmp_vec[2]=m.getColumn(1)[2];
+
+	imuRot.block<3,1>(0,1)=tmp_vec;
+
+	tmp_vec[0]=m.getColumn(2)[0];
+	tmp_vec[1]=m.getColumn(2)[1];
+	tmp_vec[2]=m.getColumn(2)[2];
+
+	imuRot.block<3,1>(0,2)=tmp_vec;
 
 	notcopied=false;
 
-	RotYPitch.col(0)[0]=cos(-Pitch);
-	RotYPitch.col(0)[2]=sin(-Pitch);
-	RotYPitch.col(2)[0]=-sin(-Pitch);
-	RotYPitch.col(2)[2]=cos(-Pitch);
-//	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
 
 
-	Eigen::Matrix4f RotZYaw=Eigen::Matrix4f::Identity();
 
-	RotZYaw.col(0)[0]=cos(Yaw);
-	RotZYaw.col(0)[1]=-sin(Yaw);
-	RotZYaw.col(1)[0]=sin(Yaw);
-	RotZYaw.col(1)[1]=cos(Yaw);
+//	std::cout<<"roll: "<<Roll<<"pitch: "<<Pitch<<"yaw:"<<Yaw<<std::endl;
+//
+//	Yaw=0;
+//
+//	Eigen::Matrix4f RotXRoll=Eigen::Matrix4f::Identity();
+//	RotXRoll.col(1)[1]=cos(-Roll);
+//	RotXRoll.col(1)[2]=sin(-Roll);
+//	RotXRoll.col(2)[1]=-sin(-Roll);
+//	RotXRoll.col(2)[2]=cos(-Roll);
+//
+////	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
+//
+//	Eigen::Matrix4f RotYPitch=Eigen::Matrix4f::Identity();
+//
+//	RotYPitch.col(0)[0]=cos(Pitch);
+//	RotYPitch.col(0)[2]=-sin(Pitch);
+//	RotYPitch.col(2)[0]=sin(Pitch);
+//	RotYPitch.col(2)[2]=cos(Pitch);
+////	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
+//
+//
+//	Eigen::Matrix4f RotZYaw=Eigen::Matrix4f::Identity();
+//
+//	RotZYaw.col(0)[0]=cos(-Yaw);
+//	RotZYaw.col(0)[1]=sin(-Yaw);
+//	RotZYaw.col(1)[0]=-sin(-Yaw);
+//	RotZYaw.col(1)[1]=cos(-Yaw);
 //	std::cout<<"rollyaw\n"<<RotZYaw<<std::endl;
+//
+//	imuRot=RotYPitch.inverse()*imuRot;
 //
 //
 //
@@ -3178,8 +3268,8 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 //	double Raw2, Pitch2, Yaw2;
 //	m2.getRPY(Raw2, Pitch2, Yaw2);
 	//1st
-	imuRot=RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
-	std::cout<<"imurot"<<std::endl<<imuRot<<std::endl;
+//	imuRot=RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
+//	std::cout<<"imurot"<<std::endl<<imuRot<<std::endl;
 //	imuRot=Eigen::Matrix4f::Identity();
 //	imuRot.col(0)[0]=(float)cos(Pitch);
 //	imuRot.col(0)[1]=(float)sin(Pitch)*sin(Roll);
@@ -3222,4 +3312,5 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 	//imuMutex_.unlock();
 	}
 }
+
 
